@@ -19,12 +19,6 @@ export type RegisterInput = {
   password: string;
   legalFirstName: string;
   legalLastName: string;
-  dateOfBirth: Date;
-  country: string;
-  addressLine1: string;
-  city: string;
-  region: string;
-  postalCode: string;
 };
 
 export async function registerCustomer(input: RegisterInput) {
@@ -51,12 +45,6 @@ export async function registerCustomer(input: RegisterInput) {
           create: {
             legalFirstName: input.legalFirstName,
             legalLastName: input.legalLastName,
-            dateOfBirth: input.dateOfBirth,
-            country: input.country,
-            addressLine1: input.addressLine1,
-            city: input.city,
-            region: input.region,
-            postalCode: input.postalCode,
             kyc: { create: { status: "NOT_STARTED" } },
           },
         },

@@ -14,12 +14,6 @@ type FormState = {
   confirmPassword: string;
   legalFirstName: string;
   legalLastName: string;
-  dateOfBirth: string;
-  country: string;
-  addressLine1: string;
-  city: string;
-  region: string;
-  postalCode: string;
 };
 
 const initialState: FormState = {
@@ -28,12 +22,6 @@ const initialState: FormState = {
   confirmPassword: "",
   legalFirstName: "",
   legalLastName: "",
-  dateOfBirth: "",
-  country: "US",
-  addressLine1: "",
-  city: "",
-  region: "",
-  postalCode: "",
 };
 
 export function RegisterPageClient() {
@@ -73,12 +61,6 @@ export function RegisterPageClient() {
           password: form.password,
           legalFirstName: form.legalFirstName,
           legalLastName: form.legalLastName,
-          dateOfBirth: form.dateOfBirth,
-          country: form.country.toUpperCase(),
-          addressLine1: form.addressLine1,
-          city: form.city,
-          region: form.region,
-          postalCode: form.postalCode,
         }),
       });
       setDone(true);
@@ -131,7 +113,7 @@ export function RegisterPageClient() {
         <div className="rounded-2xl border border-line bg-ink-3 p-8 sm:p-10">
           <h1 className="font-display text-3xl">Open an account</h1>
           <p className="mt-2 text-sm text-mist">
-            Tell us a little about yourself. You&apos;ll verify your identity in the next step.
+            Tell us a little about yourself to get started.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -156,19 +138,6 @@ export function RegisterPageClient() {
             <p className="-mt-3 text-xs text-mist">
               At least 12 characters, with upper case, lower case and a number.
             </p>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} required error={fieldErrors.dateOfBirth} />
-              <Field label="Country (ISO code)" value={form.country} onChange={(v) => set("country", v)} required maxLength={2} error={fieldErrors.country} />
-            </div>
-
-            <Field label="Address" value={form.addressLine1} onChange={(v) => set("addressLine1", v)} required error={fieldErrors.addressLine1} />
-
-            <div className="grid gap-5 sm:grid-cols-3">
-              <Field label="City" value={form.city} onChange={(v) => set("city", v)} required error={fieldErrors.city} />
-              <Field label="State / Region" value={form.region} onChange={(v) => set("region", v)} required error={fieldErrors.region} />
-              <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} required error={fieldErrors.postalCode} />
-            </div>
 
             {error && <p className="text-sm text-danger">{error}</p>}
 

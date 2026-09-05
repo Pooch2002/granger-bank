@@ -241,15 +241,18 @@ model CustomerProfile {
 
   legalFirstName String
   legalLastName  String
-  dateOfBirth    DateTime
+  /// Collected during identity verification, not at registration — see
+  /// docs/production/10-compliance-and-regulatory.md. Null until a customer
+  /// starts KYC with a real provider.
+  dateOfBirth    DateTime?
   taxIdEnc       String?
 
-  addressLine1   String
+  addressLine1   String?
   addressLine2   String?
-  city           String
-  region         String
-  postalCode     String
-  country        String   @db.Char(2)
+  city           String?
+  region         String?
+  postalCode     String?
+  country        String?  @db.Char(2)
 
   segment        CustomerSegment @default(PERSONAL)
   kyc            KycRecord?

@@ -9,11 +9,11 @@ type Profile = {
   legalFirstName: string;
   legalLastName: string;
   email: string;
-  country: string;
-  addressLine1: string;
-  city: string;
-  region: string;
-  postalCode: string;
+  country: string | null;
+  addressLine1: string | null;
+  city: string | null;
+  region: string | null;
+  postalCode: string | null;
   segment: string;
   kycStatus: string;
   memberSince: string;
@@ -55,8 +55,15 @@ export default function ProfilePage() {
 
         <div className="space-y-5 rounded-2xl border border-line bg-ink-3 p-8">
           <Row label="Email" value={profile.email} />
-          <Row label="Mailing Address" value={`${profile.addressLine1}, ${profile.city}, ${profile.region} ${profile.postalCode}`} />
-          <Row label="Country" value={profile.country} />
+          <Row
+            label="Mailing Address"
+            value={
+              profile.addressLine1
+                ? `${profile.addressLine1}, ${profile.city}, ${profile.region} ${profile.postalCode}`
+                : "Not on file — added when you complete identity verification"
+            }
+          />
+          <Row label="Country" value={profile.country ?? "Not on file"} />
           <p className="pt-2 text-xs text-mist">
             To update your personal information, contact support — profile changes on a real
             banking platform typically require identity re-verification.

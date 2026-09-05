@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "../db";
 import { getKycProvider } from "../providers/registry";
 import { writeAuditLog } from "../security/audit";
-import { NotFoundError } from "../security/errors";
+import { NotFoundError, ValidationError } from "../security/errors";
 import type { UserRole } from "@prisma/client";
 
 /**
@@ -22,6 +22,13 @@ export async function startVerification(customerProfileId: string, actorUserId: 
     include: { kyc: true, user: true },
   });
   if (!profile) throw new NotFoundError("Customer profile not found.");
+
+  // Date of birth and address aren't collected at registration (see
+  // src/app/api/auth/register/route.ts) — they're only gathered here, right
+  // before actually starting verification with a provider that needs them.
+  if (!profile.dateOfBirth || !profile.country) {
+    throw new ValidationError("Add your date of birth and address before starting identity verification.");
+  }
 
   // Fails closed until a real KYC provider is configured — see
   // src/server/providers/unconfigured.ts. Intentionally not caught here:
