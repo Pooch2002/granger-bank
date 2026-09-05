@@ -22,3 +22,39 @@ export class ConsoleEmailProvider implements EmailProvider {
     );
   }
 }
+
+/**
+ * Sends transactional email through a real HTTP email API. Never logs the
+ * response body on failure — it may echo back the recipient address(es) —
+ * only the status code is included in the thrown error.
+ */
+export class HttpEmailProvider implements EmailProvider {
+  readonly name = "http-email";
+
+  constructor(
+    private readonly apiUrl: string,
+    private readonly apiKey: string,
+    private readonly fromAddress: string
+  ) {}
+
+  async send(message: { to: string; subject: string; text: string; html?: string }): Promise<void> {
+    const res = await fetch(this.apiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: this.fromAddress,
+        to: [message.to],
+        subject: message.subject,
+        text: message.text,
+        ...(message.html ? { html: message.html } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Email provider request failed with status ${res.status}`);
+    }
+  }
+}

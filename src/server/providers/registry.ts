@@ -10,7 +10,7 @@ import {
   UnconfiguredPaymentProvider,
   UnconfiguredTransactionProvider,
 } from "./unconfigured";
-import { ConsoleEmailProvider } from "./emailProviders";
+import { ConsoleEmailProvider, HttpEmailProvider } from "./emailProviders";
 import type {
   AccountProvider,
   BankingProvider,
@@ -122,8 +122,9 @@ let email: EmailProvider | null = null;
 export function getEmailProvider(): EmailProvider {
   if (email) return email;
   const env = getEnv();
-  if (env.EMAIL_PROVIDER_API_URL && env.EMAIL_PROVIDER_API_KEY) {
-    throw new Error("EmailProvider is not implemented against a real provider yet.");
+  if (env.EMAIL_PROVIDER_API_URL && env.EMAIL_PROVIDER_API_KEY && env.EMAIL_FROM_ADDRESS) {
+    email = new HttpEmailProvider(env.EMAIL_PROVIDER_API_URL, env.EMAIL_PROVIDER_API_KEY, env.EMAIL_FROM_ADDRESS);
+    return email;
   }
   // Email is not a financial function — the console adapter is a
   // development convenience only, never selected in production.
