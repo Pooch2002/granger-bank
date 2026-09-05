@@ -32,8 +32,16 @@ export function parseSearchParams<T extends ZodType>(url: URL, schema: T): z.inf
   return result.data;
 }
 
-function formatZodError(error: ZodError) {
-  return error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+/** One message per field (first issue wins if a field has multiple), keyed
+ * by dotted path — e.g. `{ dateOfBirth: "Invalid date" }`. Issues with no
+ * path (whole-object refinements) are keyed under "_root". */
+function formatZodError(error: ZodError): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const path = issue.path.join(".") || "_root";
+    if (!(path in fields)) fields[path] = issue.message;
+  }
+  return fields;
 }
 
 // Shared primitive schemas -----------------------------------------------

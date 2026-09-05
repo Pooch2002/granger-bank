@@ -40,8 +40,14 @@ export class NotFoundError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  constructor(message = "The submitted data is invalid.", internalMessage?: string) {
-    super({ status: 422, code: "VALIDATION_ERROR", publicMessage: message, internalMessage });
+  /** Per-field messages (e.g. `{ dateOfBirth: "Invalid date" }`), safe to
+   * show a user next to the offending input — unlike internalMessage on
+   * other AppErrors, this is never system/infrastructure detail. */
+  readonly fields?: Record<string, string>;
+
+  constructor(message = "The submitted data is invalid.", fields?: Record<string, string>) {
+    super({ status: 422, code: "VALIDATION_ERROR", publicMessage: message });
+    this.fields = fields;
   }
 }
 
@@ -83,11 +89,14 @@ export class ProviderNotConfiguredError extends AppError {
  * pipeline happens — see docs/production/08-deployment-architecture.md §5)
  * but never returns internals to the caller.
  */
-export function toSafeErrorResponse(error: unknown): { status: number; body: { error: { code: string; message: string } } } {
+export function toSafeErrorResponse(
+  error: unknown
+): { status: number; body: { error: { code: string; message: string; fields?: Record<string, string> } } } {
   if (error instanceof AppError) {
+    const fields = error instanceof ValidationError ? error.fields : undefined;
     return {
       status: error.status,
-      body: { error: { code: error.code, message: error.publicMessage } },
+      body: { error: { code: error.code, message: error.publicMessage, ...(fields ? { fields } : {}) } },
     };
   }
 

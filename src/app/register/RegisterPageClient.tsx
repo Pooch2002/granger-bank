@@ -40,19 +40,27 @@ export function RegisterPageClient() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    setFieldErrors((f) => {
+      if (!(key in f)) return f;
+      const next = { ...f };
+      delete next[key];
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
 
     if (form.password !== form.confirmPassword) {
-      setError("Passwords don't match.");
+      setFieldErrors({ confirmPassword: "Passwords don't match." });
       return;
     }
 
@@ -75,7 +83,12 @@ export function RegisterPageClient() {
       });
       setDone(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      if (err instanceof ApiError && err.fields) {
+        setFieldErrors(err.fields);
+        setError(err.fields._root ?? "");
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -123,20 +136,21 @@ export function RegisterPageClient() {
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="First name" value={form.legalFirstName} onChange={(v) => set("legalFirstName", v)} required />
-              <Field label="Last name" value={form.legalLastName} onChange={(v) => set("legalLastName", v)} required />
+              <Field label="First name" value={form.legalFirstName} onChange={(v) => set("legalFirstName", v)} required error={fieldErrors.legalFirstName} />
+              <Field label="Last name" value={form.legalLastName} onChange={(v) => set("legalLastName", v)} required error={fieldErrors.legalLastName} />
             </div>
 
-            <Field label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} required />
+            <Field label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} required error={fieldErrors.email} />
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Password" type="password" value={form.password} onChange={(v) => set("password", v)} required />
+              <Field label="Password" type="password" value={form.password} onChange={(v) => set("password", v)} required error={fieldErrors.password} />
               <Field
                 label="Confirm password"
                 type="password"
                 value={form.confirmPassword}
                 onChange={(v) => set("confirmPassword", v)}
                 required
+                error={fieldErrors.confirmPassword}
               />
             </div>
             <p className="-mt-3 text-xs text-mist">
@@ -144,16 +158,16 @@ export function RegisterPageClient() {
             </p>
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} required />
-              <Field label="Country (ISO code)" value={form.country} onChange={(v) => set("country", v)} required maxLength={2} />
+              <Field label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => set("dateOfBirth", v)} required error={fieldErrors.dateOfBirth} />
+              <Field label="Country (ISO code)" value={form.country} onChange={(v) => set("country", v)} required maxLength={2} error={fieldErrors.country} />
             </div>
 
-            <Field label="Address" value={form.addressLine1} onChange={(v) => set("addressLine1", v)} required />
+            <Field label="Address" value={form.addressLine1} onChange={(v) => set("addressLine1", v)} required error={fieldErrors.addressLine1} />
 
             <div className="grid gap-5 sm:grid-cols-3">
-              <Field label="City" value={form.city} onChange={(v) => set("city", v)} required />
-              <Field label="State / Region" value={form.region} onChange={(v) => set("region", v)} required />
-              <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} required />
+              <Field label="City" value={form.city} onChange={(v) => set("city", v)} required error={fieldErrors.city} />
+              <Field label="State / Region" value={form.region} onChange={(v) => set("region", v)} required error={fieldErrors.region} />
+              <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} required error={fieldErrors.postalCode} />
             </div>
 
             {error && <p className="text-sm text-danger">{error}</p>}
@@ -192,6 +206,7 @@ function Field({
   type = "text",
   required,
   maxLength,
+  error,
 }: {
   label: string;
   value: string;
@@ -199,6 +214,7 @@ function Field({
   type?: string;
   required?: boolean;
   maxLength?: number;
+  error?: string;
 }) {
   return (
     <div>
@@ -209,8 +225,12 @@ function Field({
         maxLength={maxLength}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-line bg-ink-2 px-4 py-3 text-sm text-ivory placeholder:text-mist-dim focus:border-gold/50 focus:outline-none"
+        aria-invalid={!!error}
+        className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-sm text-ivory placeholder:text-mist-dim focus:outline-none ${
+          error ? "border-danger focus:border-danger" : "border-line focus:border-gold/50"
+        }`}
       />
+      {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
     </div>
   );
 }

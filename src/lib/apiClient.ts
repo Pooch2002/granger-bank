@@ -20,10 +20,14 @@ export async function getCsrfToken(): Promise<string> {
 export class ApiError extends Error {
   code?: string;
   status: number;
-  constructor(message: string, code: string | undefined, status: number) {
+  /** Per-field messages on a 422, e.g. `{ dateOfBirth: "Invalid date" }` —
+   * present when the server could attribute the failure to specific fields. */
+  fields?: Record<string, string>;
+  constructor(message: string, code: string | undefined, status: number, fields?: Record<string, string>) {
     super(message);
     this.code = code;
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -40,7 +44,12 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new ApiError(data?.error?.message ?? "Something went wrong. Please try again.", data?.error?.code, res.status);
+    throw new ApiError(
+      data?.error?.message ?? "Something went wrong. Please try again.",
+      data?.error?.code,
+      res.status,
+      data?.error?.fields
+    );
   }
   return data as T;
 }
