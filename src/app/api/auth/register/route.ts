@@ -5,17 +5,15 @@ import { enforceRateLimit } from "@/server/security/rateLimiter";
 import { getClientIp } from "@/server/auth/guards";
 import { registerCustomer } from "@/server/services/userService";
 
-// Date of birth, address and other KYC-relevant fields are deliberately not
-// collected here — they belong to identity verification (see
-// src/server/services/kycService.ts), which requires a real KYC provider
-// this environment doesn't have. Collecting them at registration only to
-// sit unused (and to trip an age check we can't actually act on without a
-// provider) added friction for no benefit while KYC is unimplemented.
+// Registration only collects email/password. Name, date of birth, address
+// and other KYC-relevant fields are deliberately not collected here — they
+// belong to identity verification (see src/server/services/kycService.ts),
+// which requires a real KYC provider this environment doesn't have.
+// registerCustomer derives a placeholder name from the email so existing
+// name-displaying UI keeps working; an admin can correct it later.
 const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  legalFirstName: z.string().trim().min(1).max(100),
-  legalLastName: z.string().trim().min(1).max(100),
 });
 
 export const POST = withErrorHandling(async (request: Request) => {

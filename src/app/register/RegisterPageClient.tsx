@@ -12,16 +12,12 @@ type FormState = {
   email: string;
   password: string;
   confirmPassword: string;
-  legalFirstName: string;
-  legalLastName: string;
 };
 
 const initialState: FormState = {
   email: "",
   password: "",
   confirmPassword: "",
-  legalFirstName: "",
-  legalLastName: "",
 };
 
 export function RegisterPageClient() {
@@ -59,8 +55,6 @@ export function RegisterPageClient() {
         body: JSON.stringify({
           email: form.email,
           password: form.password,
-          legalFirstName: form.legalFirstName,
-          legalLastName: form.legalLastName,
         }),
       });
       setDone(true);
@@ -113,15 +107,10 @@ export function RegisterPageClient() {
         <div className="rounded-2xl border border-line bg-ink-3 p-8 sm:p-10">
           <h1 className="font-display text-3xl">Open an account</h1>
           <p className="mt-2 text-sm text-mist">
-            Tell us a little about yourself to get started.
+            Just an email and password to get started.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="First name" value={form.legalFirstName} onChange={(v) => set("legalFirstName", v)} required error={fieldErrors.legalFirstName} />
-              <Field label="Last name" value={form.legalLastName} onChange={(v) => set("legalLastName", v)} required error={fieldErrors.legalLastName} />
-            </div>
-
             <Field label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} required error={fieldErrors.email} />
 
             <div className="grid gap-5 sm:grid-cols-2">

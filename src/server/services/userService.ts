@@ -17,9 +17,29 @@ const RESET_TOKEN_TTL_MINUTES = 30;
 export type RegisterInput = {
   email: string;
   password: string;
-  legalFirstName: string;
-  legalLastName: string;
 };
+
+/** Registration only collects email/password (see
+ * src/app/api/auth/register/route.ts) — legalFirstName/legalLastName are
+ * still required, non-null columns that plenty of existing UI reads
+ * unconditionally (dashboard header, admin customer lists, transaction/
+ * transfer tables, profile page). Deriving a placeholder from the email
+ * keeps all of that working untouched; an admin can correct it later via
+ * the customer edit endpoint, same as the deferred KYC fields. */
+function deriveNameFromEmail(email: string): { legalFirstName: string; legalLastName: string } {
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const localPart = email.split("@")[0] ?? "";
+  const words = localPart
+    .replace(/[^a-zA-Z]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return {
+    legalFirstName: words[0] ? capitalize(words[0]) : "New",
+    legalLastName: words.length > 1 ? capitalize(words.slice(1).join(" ")) : "Customer",
+  };
+}
 
 export async function registerCustomer(input: RegisterInput) {
   const weakness = isObviouslyWeakPassword(input.password, { email: input.email });
@@ -34,6 +54,7 @@ export async function registerCustomer(input: RegisterInput) {
   }
 
   const passwordHash = await hashPassword(input.password);
+  const { legalFirstName, legalLastName } = deriveNameFromEmail(input.email);
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -43,8 +64,8 @@ export async function registerCustomer(input: RegisterInput) {
         status: "PENDING_VERIFICATION",
         customerProfile: {
           create: {
-            legalFirstName: input.legalFirstName,
-            legalLastName: input.legalLastName,
+            legalFirstName,
+            legalLastName,
             kyc: { create: { status: "NOT_STARTED" } },
           },
         },
