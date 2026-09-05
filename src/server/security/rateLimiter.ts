@@ -61,7 +61,21 @@ export async function enforceRateLimit(params: {
   windowSeconds: number;
   ipAddress: string;
   userId?: string | null;
+  /** Set by call sites whose `key` embeds the caller's IP (e.g.
+   * `register:ip:${ip}`). getClientIp() returns the literal "unknown" for
+   * any request it can't attribute to a real address, and every such
+   * request would otherwise land in the same bucket — meaning one shared,
+   * global limit for every visitor whose IP can't be resolved, not a
+   * per-visitor one. Failing open here (skip enforcement, but still
+   * counted the pooled key intact) is preferable to blocking unrelated
+   * first-time users because of an unresolved header upstream. Leave unset
+   * for keys that aren't IP-based (e.g. `mfa:${userId}`), where ipAddress
+   * is only along for audit logging and shouldn't affect enforcement. */
+  skipIfIpUnknown?: boolean;
 }) {
+  if (params.skipIfIpUnknown && params.ipAddress === "unknown") {
+    return { allowed: true, remaining: params.limit, resetAt: new Date(Date.now() + params.windowSeconds * 1000) };
+  }
   const result = await rateLimiter.consume(params.key, params.limit, params.windowSeconds);
   if (!result.allowed) {
     await recordSecurityEvent({

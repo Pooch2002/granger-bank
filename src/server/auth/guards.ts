@@ -42,11 +42,19 @@ export async function requireAdminScope(scope: AdminScope): Promise<AuthContext>
 }
 
 /** Extracts a best-effort client IP for rate limiting / audit / security
- * events. Trusts X-Forwarded-For only because the deployment target sits
- * behind a load balancer/CDN that sets it — see
- * docs/production/08-deployment-architecture.md. */
+ * events, checking the header conventions used by common load balancers/
+ * CDNs (see docs/production/08-deployment-architecture.md) since the
+ * eventual deployment target isn't pinned to one provider yet. Returns
+ * "unknown" only when none of these are present (e.g. local dev with no
+ * proxy in front) — callers that key a rate-limit bucket by IP must treat
+ * "unknown" as unattributable rather than a real shared identity, since
+ * naively bucketing it would pool every such request into one counter. */
 export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) return forwardedFor.split(",")[0].trim();
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  const cfConnectingIp = request.headers.get("cf-connecting-ip");
+  if (cfConnectingIp) return cfConnectingIp.trim();
   return "unknown";
 }

@@ -11,7 +11,7 @@ const schema = z.object({ email: emailSchema });
 export const POST = withErrorHandling(async (request: Request) => {
   await assertCsrf(request);
   const ip = getClientIp(request);
-  await enforceRateLimit({ key: `pwreset:ip:${ip}`, limit: 5, windowSeconds: 60 * 60, ipAddress: ip });
+  await enforceRateLimit({ key: `pwreset:ip:${ip}`, limit: 5, windowSeconds: 60 * 60, ipAddress: ip, skipIfIpUnknown: true });
 
   const { email } = await parseJsonBody(request, schema);
   await requestPasswordReset(email);

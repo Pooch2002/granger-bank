@@ -20,7 +20,7 @@ const registerSchema = z.object({
 
 export const POST = withErrorHandling(async (request: Request) => {
   const ip = getClientIp(request);
-  await enforceRateLimit({ key: `register:ip:${ip}`, limit: 5, windowSeconds: 60 * 60, ipAddress: ip });
+  await enforceRateLimit({ key: `register:ip:${ip}`, limit: 5, windowSeconds: 60 * 60, ipAddress: ip, skipIfIpUnknown: true });
 
   const input = await parseJsonBody(request, registerSchema);
 

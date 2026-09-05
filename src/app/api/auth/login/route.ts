@@ -22,7 +22,7 @@ export const POST = withErrorHandling(async (request: Request) => {
   // accounts from one source) and per-account (blunts distributed attempts
   // against a single target). See
   // docs/production/04-authentication-architecture.md §5.
-  await enforceRateLimit({ key: `login:ip:${ip}`, limit: 20, windowSeconds: 15 * 60, ipAddress: ip });
+  await enforceRateLimit({ key: `login:ip:${ip}`, limit: 20, windowSeconds: 15 * 60, ipAddress: ip, skipIfIpUnknown: true });
   await enforceRateLimit({ key: `login:email:${input.email}`, limit: 5, windowSeconds: 15 * 60, ipAddress: ip });
 
   const userAgent = request.headers.get("user-agent") ?? "unknown";

@@ -11,7 +11,7 @@ const schema = z.object({ token: z.string().min(10), newPassword: passwordSchema
 export const POST = withErrorHandling(async (request: Request) => {
   await assertCsrf(request);
   const ip = getClientIp(request);
-  await enforceRateLimit({ key: `pwreset-confirm:ip:${ip}`, limit: 10, windowSeconds: 60 * 60, ipAddress: ip });
+  await enforceRateLimit({ key: `pwreset-confirm:ip:${ip}`, limit: 10, windowSeconds: 60 * 60, ipAddress: ip, skipIfIpUnknown: true });
 
   const { token, newPassword } = await parseJsonBody(request, schema);
   await resetPassword(token, newPassword);
