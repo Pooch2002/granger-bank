@@ -476,6 +476,127 @@ export async function createAdminAccountCredit(input: CreateAdminAccountCreditIn
   return prisma.transaction.findUniqueOrThrow({ where: { id: transaction.id } });
 }
 
+export type CreateAdminAccountDebitInput = {
+  idempotencyKey: string;
+  accountId: string;
+  amountMinor: bigint;
+  reason: string;
+  actorUserId: string;
+  actorRole: UserRole;
+  ipAddress: string;
+};
+
+/**
+ * Admin-only tool: removes money from an account's internal ledger balance.
+ * Mirrors createAdminAccountCredit above (same idempotency, ownership-free
+ * lookup, providerAccountRef guard, active-account guard), but the balance
+ * write is overdraw-safe rather than null-backfilled — unlike a credit,
+ * there is no sensible "succeed anyway" outcome for a debit against a
+ * missing or insufficient balance, so it fails instead, same as the
+ * conditional updateMany in createInternalTransfer above.
+ */
+export async function createAdminAccountDebit(input: CreateAdminAccountDebitInput) {
+  if (input.amountMinor <= BigInt(0)) {
+    throw new ValidationError("Debit amount must be greater than zero.");
+  }
+
+  // --- Idempotency: a second request with the same key (e.g. an admin's
+  // double-click) returns the first request's transaction rather than
+  // debiting twice. ---
+  const existing = await prisma.transaction.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+  if (existing) return existing;
+
+  const account = await prisma.account.findUnique({ where: { id: input.accountId } });
+  if (!account) throw new NotFoundError("Account not found.");
+  if (account.providerAccountRef) {
+    throw new ValidationError(
+      "This account is connected to a real banking provider. The account debit tool only works on accounts with no provider connected."
+    );
+  }
+  if (account.status !== "ACTIVE") {
+    throw new ValidationError("The account is not active.");
+  }
+
+  let transaction;
+  try {
+    transaction = await prisma.transaction.create({
+      data: {
+        idempotencyKey: input.idempotencyKey,
+        customerProfileId: account.customerProfileId,
+        sourceAccountId: account.id,
+        type: "ADJUSTMENT",
+        direction: "DEBIT",
+        amountMinor: input.amountMinor,
+        currency: account.currency,
+        reference: "Account debit",
+        description: input.reason,
+        status: "INITIATED",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      // Lost the race to a concurrent identical request — return its result.
+      const winner = await prisma.transaction.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (winner) return winner;
+    }
+    throw error;
+  }
+
+  await prisma.transactionStatusEvent.create({
+    data: { transactionId: transaction.id, fromStatus: null, toStatus: "INITIATED", actor: input.actorUserId },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    // Conditional updateMany (WHERE balance >= amount) is the atomic
+    // compare-and-swap that prevents overdrawing under concurrent debits —
+    // same reasoning as the source-account debit in createInternalTransfer
+    // above. If it affects zero rows, throw here so the transaction record's
+    // SETTLED update below never commits and rolls back with everything else.
+    const debited = await tx.account.updateMany({
+      where: { id: account.id, internalLedgerBalanceMinor: { gte: input.amountMinor } },
+      data: { internalLedgerBalanceMinor: { decrement: input.amountMinor } },
+    });
+    if (debited.count === 0) {
+      throw new ValidationError("This debit would overdraw the account.");
+    }
+
+    await tx.transaction.update({
+      where: { id: transaction.id },
+      data: { status: "SETTLED", authorizedAt: new Date(), settledAt: new Date() },
+    });
+    await tx.transactionStatusEvent.createMany({
+      data: [
+        { transactionId: transaction.id, fromStatus: "INITIATED", toStatus: "AUTHORIZED", actor: input.actorUserId },
+        {
+          transactionId: transaction.id,
+          fromStatus: "AUTHORIZED",
+          toStatus: "SETTLED",
+          actor: input.actorUserId,
+          reason: "admin_demo_debit",
+        },
+      ],
+    });
+  });
+
+  await writeAuditLog({
+    actorUserId: input.actorUserId,
+    actorRole: input.actorRole,
+    action: "account.admin_debit_applied",
+    targetType: "Account",
+    targetId: account.id,
+    transactionId: transaction.id,
+    ipAddress: input.ipAddress,
+    metadata: {
+      amountMinor: input.amountMinor.toString(),
+      currency: account.currency,
+      reason: input.reason,
+      customerProfileId: account.customerProfileId,
+    },
+  });
+
+  return prisma.transaction.findUniqueOrThrow({ where: { id: transaction.id } });
+}
+
 /** Admin action on a transaction held in PENDING_RISK_REVIEW. Moving it to
  * AUTHORIZED still does not move any money — the next step is the same
  * fail-closed PaymentProvider submission every transfer goes through. See
