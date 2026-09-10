@@ -63,6 +63,14 @@ export async function updateCustomerDetails(params: {
   legalFirstName?: string;
   legalLastName?: string;
   email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
   kycStatus?: KycStatus;
   userStatus?: UserStatus;
   actorUserId: string;
@@ -84,6 +92,36 @@ export async function updateCustomerDetails(params: {
   if (params.email !== undefined && params.email !== profile.user.email) {
     changes.email = { from: profile.user.email, to: params.email };
   }
+  if (params.phone !== undefined && params.phone !== profile.user.phone) {
+    changes.phone = { from: profile.user.phone ?? "", to: params.phone };
+  }
+  if (params.dateOfBirth !== undefined) {
+    const nextDateOfBirth = new Date(params.dateOfBirth);
+    if (nextDateOfBirth.getTime() !== profile.dateOfBirth?.getTime()) {
+      changes.dateOfBirth = {
+        from: profile.dateOfBirth?.toISOString() ?? "",
+        to: nextDateOfBirth.toISOString(),
+      };
+    }
+  }
+  if (params.addressLine1 !== undefined && params.addressLine1 !== profile.addressLine1) {
+    changes.addressLine1 = { from: profile.addressLine1 ?? "", to: params.addressLine1 };
+  }
+  if (params.addressLine2 !== undefined && params.addressLine2 !== profile.addressLine2) {
+    changes.addressLine2 = { from: profile.addressLine2 ?? "", to: params.addressLine2 };
+  }
+  if (params.city !== undefined && params.city !== profile.city) {
+    changes.city = { from: profile.city ?? "", to: params.city };
+  }
+  if (params.region !== undefined && params.region !== profile.region) {
+    changes.region = { from: profile.region ?? "", to: params.region };
+  }
+  if (params.postalCode !== undefined && params.postalCode !== profile.postalCode) {
+    changes.postalCode = { from: profile.postalCode ?? "", to: params.postalCode };
+  }
+  if (params.country !== undefined && params.country !== profile.country) {
+    changes.country = { from: profile.country ?? "", to: params.country };
+  }
   const currentKycStatus = profile.kyc?.status ?? "NOT_STARTED";
   if (params.kycStatus !== undefined && params.kycStatus !== currentKycStatus) {
     changes.kycStatus = { from: currentKycStatus, to: params.kycStatus };
@@ -98,20 +136,38 @@ export async function updateCustomerDetails(params: {
 
   try {
     await prisma.$transaction(async (tx) => {
-      if (params.legalFirstName !== undefined || params.legalLastName !== undefined) {
+      if (
+        params.legalFirstName !== undefined ||
+        params.legalLastName !== undefined ||
+        params.dateOfBirth !== undefined ||
+        params.addressLine1 !== undefined ||
+        params.addressLine2 !== undefined ||
+        params.city !== undefined ||
+        params.region !== undefined ||
+        params.postalCode !== undefined ||
+        params.country !== undefined
+      ) {
         await tx.customerProfile.update({
           where: { id: params.customerProfileId },
           data: {
             ...(params.legalFirstName !== undefined ? { legalFirstName: params.legalFirstName } : {}),
             ...(params.legalLastName !== undefined ? { legalLastName: params.legalLastName } : {}),
+            ...(params.dateOfBirth !== undefined ? { dateOfBirth: new Date(params.dateOfBirth) } : {}),
+            ...(params.addressLine1 !== undefined ? { addressLine1: params.addressLine1 } : {}),
+            ...(params.addressLine2 !== undefined ? { addressLine2: params.addressLine2 } : {}),
+            ...(params.city !== undefined ? { city: params.city } : {}),
+            ...(params.region !== undefined ? { region: params.region } : {}),
+            ...(params.postalCode !== undefined ? { postalCode: params.postalCode } : {}),
+            ...(params.country !== undefined ? { country: params.country } : {}),
           },
         });
       }
-      if (params.email !== undefined || params.userStatus !== undefined) {
+      if (params.email !== undefined || params.phone !== undefined || params.userStatus !== undefined) {
         await tx.user.update({
           where: { id: profile.userId },
           data: {
             ...(params.email !== undefined ? { email: params.email } : {}),
+            ...(params.phone !== undefined ? { phone: params.phone } : {}),
             ...(params.userStatus !== undefined ? { status: params.userStatus } : {}),
           },
         });
