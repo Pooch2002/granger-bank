@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Headset, MessageSquare, Phone } from "lucide-react";
 import { PageHeading } from "@/components/dashboard/PageHeading";
 import { Button } from "@/components/ui/Button";
+import { apiFetch } from "@/lib/apiClient";
+
+type ChatMessage = { id: string; body: string; senderUserId: string; createdAt: string };
 
 const faqs = [
   { q: "How do I dispute a transaction?", a: "Go to Transactions, select the transaction in question, and choose \"Report an issue.\" A specialist will follow up within one business day." },
@@ -14,6 +17,60 @@ const faqs = [
 
 export default function HelpPage() {
   const [open, setOpen] = useState<number | null>(0);
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ authenticated: boolean; user?: { id: string } }>("/api/auth/session").then((d) => {
+      if (d.user) setCurrentUserId(d.user.id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+
+    let cancelled = false;
+    function loadMessages() {
+      apiFetch<{ messages: ChatMessage[] }>("/api/support")
+        .then((d) => {
+          if (!cancelled) setMessages(d.messages);
+        })
+        .catch(() => {
+          // Keep showing the last known messages if a poll fails.
+        });
+    }
+
+    loadMessages();
+    const interval = setInterval(loadMessages, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [chatOpen]);
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    const body = input.trim();
+    if (!body) return;
+
+    setLoading(true);
+    try {
+      const data = await apiFetch<{ message: ChatMessage }>("/api/support", {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      });
+      setMessages((prev) => [...prev, data.message]);
+      setInput("");
+    } catch {
+      // The next poll will reconcile state either way.
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div>
@@ -50,10 +107,57 @@ export default function HelpPage() {
             </Button>
           </div>
           <div className="rounded-2xl border border-line bg-ink-3 p-6">
-            <MessageSquare className="text-gold" size={22} />
-            <p className="mt-4 text-sm text-ivory">Live Chat</p>
-            <p className="mt-1 text-xs text-mist">Average response time: under 2 minutes.</p>
-            <Button size="md" className="mt-4 w-full">Start a Chat</Button>
+            {!chatOpen ? (
+              <>
+                <MessageSquare className="text-gold" size={22} />
+                <p className="mt-4 text-sm text-ivory">Live Chat</p>
+                <p className="mt-1 text-xs text-mist">Average response time: under 2 minutes.</p>
+                <Button size="md" className="mt-4 w-full" onClick={() => setChatOpen(true)}>
+                  Start a Chat
+                </Button>
+              </>
+            ) : (
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="text-gold" size={18} />
+                  <p className="text-sm text-ivory">Live Chat</p>
+                </div>
+
+                <div className="mt-4 h-64 space-y-2 overflow-y-auto rounded-xl border border-line bg-ink-2 p-3">
+                  {messages.length === 0 && (
+                    <p className="text-xs text-mist">
+                      A specialist will be with you shortly. Send a message to get started.
+                    </p>
+                  )}
+                  {messages.map((m) => {
+                    const mine = m.senderUserId === currentUserId;
+                    return (
+                      <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                            mine ? "bg-gold/15 text-ivory" : "bg-ink-3 text-ivory-dim"
+                          }`}
+                        >
+                          {m.body}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <form onSubmit={handleSend} className="mt-3 flex gap-2">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type a message…"
+                    className="flex-1 rounded-xl border border-line bg-ink-2 px-3 py-2 text-sm text-ivory placeholder:text-mist-dim focus:border-gold/50 focus:outline-none"
+                  />
+                  <Button type="submit" size="md" disabled={loading || !input.trim()}>
+                    Send
+                  </Button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>
