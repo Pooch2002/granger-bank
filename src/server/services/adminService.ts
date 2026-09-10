@@ -224,6 +224,32 @@ export async function listAllTransactions(params: { limit?: number; status?: str
   });
 }
 
+/** Inbox list for the admin support view — each conversation's most recent
+ * message as a preview, most recently active first. */
+export async function listOpenConversations(params: { limit?: number }) {
+  return prisma.conversation.findMany({
+    where: { status: "OPEN" },
+    include: {
+      customerProfile: { select: { legalFirstName: true, legalLastName: true } },
+      messages: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: params.limit ?? 100,
+  });
+}
+
+export async function getConversationDetail(conversationId: string) {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      customerProfile: { select: { legalFirstName: true, legalLastName: true } },
+      messages: { orderBy: { createdAt: "asc" }, include: { sender: { select: { email: true, role: true } } } },
+    },
+  });
+  if (!conversation) throw new NotFoundError("Conversation not found.");
+  return conversation;
+}
+
 export async function listAuditLogs(params: { limit?: number; targetType?: string }) {
   return prisma.auditLog.findMany({
     where: params.targetType ? { targetType: params.targetType } : undefined,
