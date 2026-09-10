@@ -49,6 +49,7 @@ model User {
   securityEvents    SecurityEvent[]
   auditLogsActor    AuditLog[]        @relation("AuditActor")
   notifications     Notification[]
+  messages          Message[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
 
@@ -260,6 +261,7 @@ model CustomerProfile {
   accounts       Account[]
   beneficiaries  Beneficiary[]
   transactions   Transaction[]
+  conversations  Conversation[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -563,6 +565,37 @@ enum StatementStatus {
   GENERATING
   READY
   FAILED
+}
+
+model Conversation {
+  id                String   @id @default(uuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  status            ConversationStatus @default(OPEN)
+  createdAt         DateTime @default(now())
+  lastMessageAt     DateTime @default(now())
+  messages          Message[]
+
+  @@index([customerProfileId])
+  @@index([status, lastMessageAt])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUserId   String
+  sender         User     @relation(fields: [senderUserId], references: [id])
+  body           String
+  createdAt      DateTime @default(now())
+  readAt         DateTime?
+
+  @@index([conversationId, createdAt])
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
 }
 
 model Notification {
